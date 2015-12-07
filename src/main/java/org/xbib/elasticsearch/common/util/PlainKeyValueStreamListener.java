@@ -21,6 +21,8 @@ import com.spatial4j.core.shape.Shape;
 import org.elasticsearch.common.xcontent.XContentBuilder;
 import org.elasticsearch.common.xcontent.json.JsonXContent;
 import org.xbib.elasticsearch.common.keyvalue.KeyValueStreamListener;
+import org.xbib.elasticsearch.common.util.CustomJsonXContent;
+import org.xbib.elasticsearch.common.util.CustomJsonXContentParser;
 
 import java.io.IOException;
 import java.util.LinkedHashMap;
@@ -148,7 +150,7 @@ public class PlainKeyValueStreamListener<K, V> implements KeyValueStreamListener
         }
         // create current object from values by sequentially merging the values
         for (int i = 0; i < keys.size() && i < values.size(); i++) {
-            Map map = null;
+            Object v = null;
             try {
                 String s = values.get(i).toString();
                 if (s.startsWith("POLYGON(") || s.startsWith("POINT(")) {
@@ -161,11 +163,13 @@ public class PlainKeyValueStreamListener<K, V> implements KeyValueStreamListener
                     s = builder.string();
                 }
                 // JSON content?
-                map = JsonXContent.jsonXContent.createParser(s).mapAndClose();
+                v = ((CustomJsonXContentParser) CustomJsonXContent.jsonXContent.createParser(values.get(i).toString())).mapOrList();
             } catch (Exception e) {
                 // ignore
             }
-            Object v = map != null && map.size() > 0 ? map : values.get(i);
+            if(v == null || (v instanceof Map && ((Map) v).size() == 0)) {
+                v = values.get(i);
+            }
             Map<String, Object> m = merge(current.source(), keys.get(i), v);
             current.source(m);
         }
